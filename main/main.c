@@ -18,7 +18,7 @@
 #define I2C_MASTER_SDA_IO 	4               /*!< gpio number for I2C master data  */
 
 #define I2C_MASTER_NUM 		1
-#define I2C_MASTER_FREQ_HZ 	100000						      /*!< I2C master clock frequency */
+#define I2C_MASTER_FREQ_HZ 	200000						      /*!< I2C master clock frequency */
 
 #define WRITE_BIT I2C_MASTER_WRITE              /*!< I2C master write */
 #define READ_BIT I2C_MASTER_READ                /*!< I2C master read */
@@ -85,7 +85,7 @@ int writeRegister( uint8_t addr, uint8_t reg, uint8_t value)
 {
     uint8_t buffer[3];
 
-    //printf( "Writing [%d]=[%d] ", reg, value );
+    //printf( "Writing [%d]=[%d]\n ", reg, value );
 
     buffer[0] = reg;
     buffer[1] = value;
@@ -130,7 +130,6 @@ int writeData( uint8_t addr, uint8_t* buf, int len )
 
     //printf( " Return: %d\n", ret );
 
-
     if (ret != ESP_OK) {
         return ret;
     }
@@ -148,14 +147,14 @@ static esp_err_t i2c_master_init(void)
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
     conf.scl_io_num = I2C_MASTER_SCL_IO;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = 800000;
+    conf.master.clk_speed = 100000;
     i2c_param_config(i2c_master_port, &conf);
     return i2c_driver_install(i2c_master_port, conf.mode, 0, 0, 0);
 }
 
 void sendCommand( uint8_t command )
 {
-	writeRegister( OLED_ADDRESS, 0x80, command );
+	writeRegister( OLED_ADDRESS, 0x00, command );
 }
 
 void sendData()
@@ -166,7 +165,11 @@ void sendData()
 
 	sendCommand(PAGEADDR);
 	sendCommand(0x0);
-	sendCommand(0x7);
+
+	if ( _displayHeight == 64 )
+		sendCommand(0x7);
+	else
+		sendCommand(0x3);
 
 	for ( uint16_t i = 0; i < _displayBufferSize/16; i++)
 	{
@@ -279,9 +282,12 @@ void initializeOLED(void)
 	sendCommand(COMSCANDEC);
 	sendCommand(SETCOMPINS);
 
-    sendCommand(0x12);
-    sendCommand(SETCONTRAST);
+	if ( _displayHeight == 64 )
+	    sendCommand(0x12);
+	else
+	    sendCommand(0x02);
 
+	sendCommand(SETCONTRAST);
     sendCommand(0xCF);
 
     sendCommand(SETPRECHARGE);
@@ -464,6 +470,7 @@ void app_main(void)
 
     _displayWidth = 128;
     _displayHeight = 64;
+    //_displayHeight = 32;
     _displayBufferSize = _displayWidth * _displayHeight/8;
 
     _buffer = (uint8_t*) malloc((sizeof(uint8_t) * _displayBufferSize) );
@@ -489,20 +496,18 @@ void app_main(void)
     	char buf[100];
 
     	memset(_buffer, 0, _displayBufferSize);
-    	//sprintf( buf, "Count: 09001" );
-    	sprintf( buf, "Count: %06d\nOther: %06d", col, col*col );
+    	sprintf( buf, "Count: %06d", col );
 
-    	drawString( 10, 10, buf, color );
-
+    	drawString( 0, 0, buf, color );
 /*
     	for ( int i = 0 ; i < 64 ; i++ )
         	setPixelColor( i+col, i, color );
+    	sendData();
 */
-    	//sendData();
     	sendDataBack();
         col++;
 
-        //vTaskDelay( 1000 / portTICK_PERIOD_MS);
+        //vTaskDelay( 10 / portTICK_PERIOD_MS);
     }
 }
 
